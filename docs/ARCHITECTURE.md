@@ -401,4 +401,20 @@ Build e testes também rodam em container:
 ```bash
 make build      # mvn verify dentro da imagem maven:3.9-eclipse-temurin-21
 make test       # só os testes
+make coverage   # verify + caminho do relatório JaCoCo
+make format     # spotless:apply
 ```
+
+Os testes de integração sobem Postgres, RabbitMQ, MinIO e Redis via Testcontainers. Por isso o
+alvo de build monta o socket do Docker do host no container do Maven e usa a rede do host — é o
+que permite ao Maven, ele mesmo em um container, criar containers irmãos e alcançar as portas que
+eles publicam.
+
+Dois detalhes que custaram tempo e ficam registrados para quem for mexer no `Makefile`:
+
+- O `docker-java` embutido no Testcontainers embarca `api.version=1.32`, abaixo do mínimo aceito
+  pelos daemons Docker atuais (1.40). A variável de ambiente `DOCKER_API_VERSION` **não** resolve;
+  é preciso a *system property* `api.version`, que o `pom.xml` passa ao Surefire via
+  `docker.api.version` (padrão 1.41, compatível do Docker 20.10 em diante).
+- O Ryuk fica desligado no build, porque o container de limpeza do Testcontainers não funciona bem
+  nesse arranjo de Docker-fora-do-Docker.
