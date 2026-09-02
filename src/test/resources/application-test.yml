@@ -13,6 +13,11 @@ spring:
   flyway:
     enabled: false
 
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: false
+
 logging:
   level:
     root: WARN

@@ -33,6 +33,18 @@ spring:
     publisher-returns: true
     template:
       mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: auto
+        default-requeue-rejected: false
+        prefetch: ${STATUS_CONSUMER_PREFETCH:10}
+        concurrency: ${STATUS_CONSUMER_CONCURRENCY:2}
+        max-concurrency: ${STATUS_CONSUMER_MAX_CONCURRENCY:5}
+        retry:
+          enabled: true
+          initial-interval: 1s
+          max-attempts: 3
+          multiplier: 2
 
   servlet:
     multipart:

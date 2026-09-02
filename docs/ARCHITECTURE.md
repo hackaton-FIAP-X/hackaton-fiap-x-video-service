@@ -128,9 +128,16 @@ Máquina de estados:
 
 ```
 RECEIVED ──▶ QUEUED ──▶ PROCESSING ──▶ COMPLETED
-                             │
-                             └────────▶ FAILED
+               │             │
+               └─────────────┴────────▶ FAILED
+               │
+               └──────────────────────▶ COMPLETED
 ```
+
+`QUEUED` vai direto a `COMPLETED` porque o contrato tem apenas três eventos, e nenhum deles
+anuncia o *início* do processamento. `PROCESSING` fica reservado para o dia em que o worker
+publicar um `video.processing` — até lá, é um estado alcançável mas não usado. Forçar o consumidor
+a passar por `PROCESSING` antes de concluir registraria um estado que nunca foi observado.
 
 `COMPLETED` e `FAILED` são estados **finais**. Reentrega de mensagem não pode sobrescrevê-los —
 essa é a garantia de idempotência do VID-7.

@@ -17,6 +17,12 @@ class VideoStatusTest {
     assertThat(VideoStatus.PROCESSING.allowsTransitionTo(VideoStatus.COMPLETED)).isTrue();
   }
 
+  @Test
+  @DisplayName("Deve permitir concluir direto de QUEUED, ja que o worker nao anuncia o inicio")
+  void devePermitirConclusaoDiretaDeQueued() {
+    assertThat(VideoStatus.QUEUED.allowsTransitionTo(VideoStatus.COMPLETED)).isTrue();
+  }
+
   @ParameterizedTest
   @EnumSource(
       value = VideoStatus.class,

@@ -14,7 +14,7 @@ public enum VideoStatus {
   private static final Map<VideoStatus, Set<VideoStatus>> ALLOWED_TRANSITIONS =
       Map.of(
           RECEIVED, EnumSet.of(QUEUED, FAILED),
-          QUEUED, EnumSet.of(PROCESSING, FAILED),
+          QUEUED, EnumSet.of(PROCESSING, COMPLETED, FAILED),
           PROCESSING, EnumSet.of(COMPLETED, FAILED),
           COMPLETED, EnumSet.noneOf(VideoStatus.class),
           FAILED, EnumSet.noneOf(VideoStatus.class));

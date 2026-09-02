@@ -17,8 +17,12 @@ public class RabbitMqConfig {
 
   public static final String PROCESSING_QUEUE = "video.processing";
   public static final String PROCESSING_DLQ = "video.processing.dlq";
+  public static final String STATUS_QUEUE = "video.status";
+  public static final String STATUS_DLQ = "video.status.dlq";
 
   public static final String UPLOADED_ROUTING_KEY = "video.uploaded";
+  public static final String PROCESSED_ROUTING_KEY = "video.processed";
+  public static final String FAILED_ROUTING_KEY = "video.failed";
 
   @Bean
   public TopicExchange videoExchange() {
@@ -54,5 +58,36 @@ public class RabbitMqConfig {
     return BindingBuilder.bind(processingDeadLetterQueue())
         .to(videoDeadLetterExchange())
         .with(PROCESSING_QUEUE);
+  }
+
+  @Bean
+  public Queue statusQueue() {
+    return QueueBuilder.durable(STATUS_QUEUE)
+        .quorum()
+        .deadLetterExchange(VIDEO_DLX)
+        .deadLetterRoutingKey(STATUS_QUEUE)
+        .build();
+  }
+
+  @Bean
+  public Queue statusDeadLetterQueue() {
+    return QueueBuilder.durable(STATUS_DLQ).quorum().build();
+  }
+
+  @Bean
+  public Binding processedBinding() {
+    return BindingBuilder.bind(statusQueue()).to(videoExchange()).with(PROCESSED_ROUTING_KEY);
+  }
+
+  @Bean
+  public Binding failedBinding() {
+    return BindingBuilder.bind(statusQueue()).to(videoExchange()).with(FAILED_ROUTING_KEY);
+  }
+
+  @Bean
+  public Binding statusDeadLetterBinding() {
+    return BindingBuilder.bind(statusDeadLetterQueue())
+        .to(videoDeadLetterExchange())
+        .with(STATUS_QUEUE);
   }
 }

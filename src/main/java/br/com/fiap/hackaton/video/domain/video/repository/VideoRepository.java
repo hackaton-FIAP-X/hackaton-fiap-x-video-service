@@ -13,6 +13,8 @@ public interface VideoRepository {
 
   Optional<Video> findById(UUID id);
 
+  Optional<Video> findByIdForUpdate(UUID id);
+
   Optional<Video> findByIdAndUserId(UUID id, UUID userId);
 
   Page<Video> findAllByOwner(UUID userId, VideoStatus status, Pageable pageable);
