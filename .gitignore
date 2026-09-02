@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Projeto ###
+.env
+docs/load/results/
