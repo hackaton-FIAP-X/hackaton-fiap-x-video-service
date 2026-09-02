@@ -371,7 +371,46 @@ tentando cobrir quatro serviços de uma vez.
 
 ---
 
-## 8. Como rodar
+## 8. Observabilidade
+
+O `/actuator/prometheus` é público — o scraping precisa alcançá-lo sem token. O que já vem de
+graça do Micrometer cobre a maior parte do painel do PLT-7: `http_server_requests_seconds` dá
+latência p95 e contagem por rota e status, e as métricas de JVM, HikariCP e RabbitMQ vêm junto.
+
+A única métrica de negócio própria é a que o Micrometer não teria como saber:
+
+```
+fiapx_outbox_pending   eventos gravados no outbox que o broker ainda não confirmou
+```
+
+É o sinal direto do requisito "não perde requisição": em operação normal fica em zero, e sobe
+exatamente quando o RabbitMQ está fora do ar. Se ficar alto e não drenar, o dispatcher parou. A
+consulta usa o índice parcial criado no VID-4, então custa pouco a cada scrape.
+
+---
+
+## 9. Imagem de produção
+
+`Dockerfile` multi-stage: o build roda em `maven:3.9-eclipse-temurin-21` e o runtime é
+`eclipse-temurin:21-jre-alpine`, com usuário não-root (`fiapx`) e healthcheck apontando para a
+probe de liveness.
+
+O jar é extraído em camadas com `layertools`, na ordem em que mudam: dependências, loader,
+snapshots e por último o código da aplicação. Assim um deploy que só altera o código reaproveita
+a camada de 85 MB de dependências e envia menos de 1 MB.
+
+**Tamanho: 143 MB**, contra o teto de 250 MB do plano. Atenção: a coluna `SIZE` do `docker images`
+mostra 448 MB porque soma o manifest multi-plataforma e as attestations do buildx. O número real
+sai de `docker image inspect --format '{{.Size}}'` ou de `docker save`.
+
+```bash
+docker build -t fiapx/video-service:local .
+docker image inspect fiapx/video-service:local --format '{{.Size}}'
+```
+
+---
+
+## 10. Como rodar
 
 Tudo sobe em container. Não é necessário ter Java nem Maven instalados na máquina.
 
@@ -390,6 +429,8 @@ qualquer caso — é ela que vale para o contrato e para os manifests do Kuberne
 | video-service | http://localhost:8080 | Bearer JWT |
 | Swagger UI | http://localhost:8080/swagger-ui.html | — |
 | Actuator | http://localhost:8080/actuator/health | — |
+| Probes K8s | `/actuator/health/liveness` · `/actuator/health/readiness` | — |
+| Métricas | http://localhost:8080/actuator/prometheus | — |
 | RabbitMQ | http://localhost:15672 | `fiapx` / `fiapx` |
 | MinIO | http://localhost:9001 | `fiapx` / `fiapx12345` |
 | Mailhog | http://localhost:8025 | — |
