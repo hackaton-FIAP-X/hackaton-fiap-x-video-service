@@ -2,6 +2,7 @@ package br.com.fiap.hackaton.video.application.video.service;
 
 import br.com.fiap.hackaton.video.application.video.dto.VideoFailedEvent;
 import br.com.fiap.hackaton.video.application.video.dto.VideoProcessedEvent;
+import br.com.fiap.hackaton.video.application.video.gateway.VideoListingCache;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
 import br.com.fiap.hackaton.video.domain.video.repository.VideoRepository;
 import java.util.Optional;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class VideoStatusUpdateService {
 
   private final VideoRepository videoRepository;
+  private final VideoListingCache listingCache;
 
   @Transactional
   public void applyProcessed(VideoProcessedEvent event) {
@@ -25,6 +27,7 @@ public class VideoStatusUpdateService {
             video -> {
               video.markAsCompleted(event.zipKey(), event.frameCount());
               videoRepository.save(video);
+              listingCache.invalidate(video.getUserId());
               log.info(
                   "Video {} concluido com {} frames [trace={}]",
                   video.getId(),
@@ -40,6 +43,7 @@ public class VideoStatusUpdateService {
             video -> {
               video.markAsFailed(describe(event), attemptsOf(event));
               videoRepository.save(video);
+              listingCache.invalidate(video.getUserId());
               log.warn(
                   "Video {} falhou: {} [trace={}]",
                   video.getId(),

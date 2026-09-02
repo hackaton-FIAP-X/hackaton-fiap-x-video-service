@@ -3,6 +3,7 @@ package br.com.fiap.hackaton.video.application.video.service;
 import br.com.fiap.hackaton.video.application.shared.exception.ResourceNotFoundException;
 import br.com.fiap.hackaton.video.application.video.dto.VideoPageResponse;
 import br.com.fiap.hackaton.video.application.video.dto.VideoResponse;
+import br.com.fiap.hackaton.video.application.video.gateway.VideoListingCache;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
 import br.com.fiap.hackaton.video.domain.video.repository.VideoRepository;
 import br.com.fiap.hackaton.video.domain.video.valueobject.VideoStatus;
@@ -24,13 +25,29 @@ public class VideoQueryService {
   private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
 
   private final VideoRepository videoRepository;
+  private final VideoListingCache listingCache;
 
   @Transactional(readOnly = true)
   public VideoPageResponse listOwnedBy(UUID userId, VideoStatus status, int page, int size) {
-    Pageable pageable = PageRequest.of(sanitizePage(page), sanitizeSize(size), NEWEST_FIRST);
+    int safePage = sanitizePage(page);
+    int safeSize = sanitizeSize(size);
 
-    return VideoPageResponse.fromPage(
-        videoRepository.findAllByOwner(userId, status, pageable).map(VideoResponse::fromEntity));
+    return listingCache
+        .find(userId, status, safePage, safeSize)
+        .orElseGet(() -> queryAndCache(userId, status, safePage, safeSize));
+  }
+
+  private VideoPageResponse queryAndCache(UUID userId, VideoStatus status, int page, int size) {
+    Pageable pageable = PageRequest.of(page, size, NEWEST_FIRST);
+
+    VideoPageResponse response =
+        VideoPageResponse.fromPage(
+            videoRepository
+                .findAllByOwner(userId, status, pageable)
+                .map(VideoResponse::fromEntity));
+
+    listingCache.store(userId, status, page, size, response);
+    return response;
   }
 
   @Transactional(readOnly = true)

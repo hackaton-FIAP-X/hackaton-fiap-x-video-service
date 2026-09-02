@@ -2,6 +2,7 @@ package br.com.fiap.hackaton.video.application.video.service;
 
 import br.com.fiap.hackaton.video.application.shared.exception.BusinessException;
 import br.com.fiap.hackaton.video.application.video.dto.VideoUploadedEvent;
+import br.com.fiap.hackaton.video.application.video.gateway.VideoListingCache;
 import br.com.fiap.hackaton.video.domain.outbox.entity.OutboxEvent;
 import br.com.fiap.hackaton.video.domain.outbox.repository.OutboxRepository;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
@@ -20,11 +21,13 @@ public class VideoRegistrationService {
   private final VideoRepository videoRepository;
   private final OutboxRepository outboxRepository;
   private final ObjectMapper objectMapper;
+  private final VideoListingCache listingCache;
 
   @Transactional
   public Video registerReceived(Video video, String traceId) {
     Video saved = videoRepository.save(video);
     outboxRepository.save(buildUploadedEvent(saved, traceId));
+    listingCache.invalidate(saved.getUserId());
     return saved;
   }
 

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import br.com.fiap.hackaton.video.application.video.dto.VideoFailedEvent;
 import br.com.fiap.hackaton.video.application.video.dto.VideoProcessedEvent;
+import br.com.fiap.hackaton.video.application.video.gateway.VideoListingCache;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
 import br.com.fiap.hackaton.video.domain.video.repository.VideoRepository;
 import br.com.fiap.hackaton.video.domain.video.valueobject.VideoStatus;
@@ -29,12 +30,13 @@ class VideoStatusUpdateServiceTest {
   private static final String TRACE_ID = "trace-123";
 
   @Mock private VideoRepository videoRepository;
+  @Mock private VideoListingCache listingCache;
 
   private VideoStatusUpdateService statusUpdateService;
 
   @BeforeEach
   void setUp() {
-    statusUpdateService = new VideoStatusUpdateService(videoRepository);
+    statusUpdateService = new VideoStatusUpdateService(videoRepository, listingCache);
   }
 
   private Video queuedVideo() {

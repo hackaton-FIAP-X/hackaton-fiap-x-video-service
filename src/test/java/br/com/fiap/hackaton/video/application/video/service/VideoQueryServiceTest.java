@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import br.com.fiap.hackaton.video.application.shared.exception.ResourceNotFoundException;
 import br.com.fiap.hackaton.video.application.video.dto.VideoPageResponse;
 import br.com.fiap.hackaton.video.application.video.dto.VideoResponse;
+import br.com.fiap.hackaton.video.application.video.gateway.VideoListingCache;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
 import br.com.fiap.hackaton.video.domain.video.repository.VideoRepository;
 import br.com.fiap.hackaton.video.domain.video.valueobject.VideoStatus;
@@ -33,15 +34,26 @@ class VideoQueryServiceTest {
   private static final UUID USER_ID = UUID.fromString("3f2504e0-4f89-11d3-9a0c-0305e82c3301");
 
   @Mock private VideoRepository videoRepository;
+  @Mock private VideoListingCache listingCache;
 
   private VideoQueryService videoQueryService;
 
   @BeforeEach
   void setUp() {
-    videoQueryService = new VideoQueryService(videoRepository);
+    videoQueryService = new VideoQueryService(videoRepository, listingCache);
+  }
+
+  private void cacheIsEmpty() {
+    when(listingCache.find(
+            any(),
+            any(),
+            org.mockito.ArgumentMatchers.anyInt(),
+            org.mockito.ArgumentMatchers.anyInt()))
+        .thenReturn(java.util.Optional.empty());
   }
 
   private void repositoryReturnsEmptyPage() {
+    cacheIsEmpty();
     when(videoRepository.findAllByOwner(any(), any(), any()))
         .thenAnswer(call -> new PageImpl<Video>(List.of(), call.getArgument(2), 0));
   }
@@ -117,6 +129,7 @@ class VideoQueryServiceTest {
   @DisplayName("Deve devolver o total de elementos junto com a pagina")
   void deveDevolverTotalDeElementos() {
     Video video = new Video(USER_ID, "aula.mp4");
+    cacheIsEmpty();
     when(videoRepository.findAllByOwner(any(), any(), any()))
         .thenReturn(new PageImpl<>(List.of(video), PageRequest.of(0, 20), 42));
 

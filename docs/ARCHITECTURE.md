@@ -286,6 +286,21 @@ O endpoint usado para assinar é diferente do usado para gravar (`storage.public
 que o **navegador do usuário** vai acessar, não sobre o nome interno do serviço na rede do
 compose ou do cluster.
 
+**Por que o cache é versionado por usuário.** A listagem é cacheada por `(usuário, status, página,
+tamanho)`, então um único usuário tem várias entradas. Evictar tudo (`allEntries`) a cada mudança
+de status limparia o cache de todo mundo a cada vídeo concluído — o cache nunca esquentaria. Varrer
+chaves por padrão (`SCAN`) custa caro sob carga. A solução é um contador de versão por usuário:
+invalidar é um `INCR`, as chaves antigas viram órfãs e morrem pelo TTL, e a escrita de um usuário
+nunca derruba o cache de outro.
+
+**O que o cache não garante.** Ele é *cache-aside* com invalidação externa, então tem uma janela
+conhecida: se o Redis estiver indisponível exatamente no momento de uma escrita, o `INCR` da
+invalidação se perde e a listagem serve dado velho **até o TTL expirar** (60s por padrão). O
+serviço continua funcionando — leitura, upload e download seguem normais com o Redis fora —, mas a
+listagem pode atrasar por um minuto. É o preço de qualquer cache externo, e está limitado pelo TTL
+de propósito. Se essa janela incomodar, o caminho é baixar `video.cache.ttl` ou desligar o cache
+com `video.cache.enabled=false`, que é a primeira coisa a cortar segundo o plano do time.
+
 **Por que object storage em vez de volume.** Com múltiplas réplicas, o pod que recebeu o upload
 não é o pod que serve o download, e o worker que gerou o ZIP não é nenhum dos dois. Storage
 compartilhado compatível com S3 resolve, e deixa a migração para AWS trivial.

@@ -24,6 +24,8 @@ logging:
     br.com.fiap.hackaton.video: INFO
 
 video:
+  cache:
+    enabled: false
   outbox:
     scheduler:
       enabled: false

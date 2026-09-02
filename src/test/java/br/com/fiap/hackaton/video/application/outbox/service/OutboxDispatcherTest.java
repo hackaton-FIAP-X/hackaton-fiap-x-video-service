@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.fiap.hackaton.video.application.video.gateway.VideoListingCache;
 import br.com.fiap.hackaton.video.domain.outbox.entity.OutboxEvent;
 import br.com.fiap.hackaton.video.domain.outbox.repository.OutboxRepository;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
@@ -33,12 +34,14 @@ class OutboxDispatcherTest {
   @Mock private OutboxRepository outboxRepository;
   @Mock private VideoRepository videoRepository;
   @Mock private VideoEventPublisher eventPublisher;
+  @Mock private VideoListingCache listingCache;
 
   private OutboxDispatcher dispatcher;
 
   @BeforeEach
   void setUp() {
-    dispatcher = new OutboxDispatcher(outboxRepository, videoRepository, eventPublisher, 50);
+    dispatcher =
+        new OutboxDispatcher(outboxRepository, videoRepository, eventPublisher, listingCache, 50);
   }
 
   private Video video() {

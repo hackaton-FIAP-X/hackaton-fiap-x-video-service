@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import br.com.fiap.hackaton.video.application.shared.exception.ConflictException;
 import br.com.fiap.hackaton.video.application.shared.exception.ResourceNotFoundException;
+import br.com.fiap.hackaton.video.application.video.gateway.VideoListingCache;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
 import br.com.fiap.hackaton.video.domain.video.gateway.VideoStorageGateway;
 import br.com.fiap.hackaton.video.domain.video.repository.VideoRepository;
@@ -35,13 +36,15 @@ class VideoDownloadServiceTest {
 
   @Mock private VideoRepository videoRepository;
   @Mock private VideoStorageGateway storageGateway;
+  @Mock private VideoListingCache listingCache;
 
   private VideoDownloadService videoDownloadService;
 
   @BeforeEach
   void setUp() {
     videoDownloadService =
-        new VideoDownloadService(new VideoQueryService(videoRepository), storageGateway, TTL);
+        new VideoDownloadService(
+            new VideoQueryService(videoRepository, listingCache), storageGateway, TTL);
   }
 
   private Video completedVideo() {

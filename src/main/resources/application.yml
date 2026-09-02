@@ -46,6 +46,13 @@ spring:
           max-attempts: 3
           multiplier: 2
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT:2s}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+
   servlet:
     multipart:
       enabled: true
@@ -66,6 +73,9 @@ video:
     max-size: ${UPLOAD_MAX_FILE_SIZE:500MB}
   download:
     url-ttl: ${DOWNLOAD_URL_TTL:5m}
+  cache:
+    enabled: ${CACHE_ENABLED:true}
+    ttl: ${CACHE_TTL:60s}
   outbox:
     batch-size: ${OUTBOX_BATCH_SIZE:50}
     confirm-timeout-ms: ${OUTBOX_CONFIRM_TIMEOUT_MS:5000}

@@ -1,5 +1,6 @@
 package br.com.fiap.hackaton.video.application.outbox.service;
 
+import br.com.fiap.hackaton.video.application.video.gateway.VideoListingCache;
 import br.com.fiap.hackaton.video.domain.outbox.entity.OutboxEvent;
 import br.com.fiap.hackaton.video.domain.outbox.repository.OutboxRepository;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
@@ -21,16 +22,19 @@ public class OutboxDispatcher {
   private final OutboxRepository outboxRepository;
   private final VideoRepository videoRepository;
   private final VideoEventPublisher eventPublisher;
+  private final VideoListingCache listingCache;
   private final int batchSize;
 
   public OutboxDispatcher(
       OutboxRepository outboxRepository,
       VideoRepository videoRepository,
       VideoEventPublisher eventPublisher,
+      VideoListingCache listingCache,
       @Value("${video.outbox.batch-size:50}") int batchSize) {
     this.outboxRepository = outboxRepository;
     this.videoRepository = videoRepository;
     this.eventPublisher = eventPublisher;
+    this.listingCache = listingCache;
     this.batchSize = batchSize;
   }
 
@@ -77,5 +81,6 @@ public class OutboxDispatcher {
   private void queue(Video video) {
     video.markAsQueued();
     videoRepository.save(video);
+    listingCache.invalidate(video.getUserId());
   }
 }
