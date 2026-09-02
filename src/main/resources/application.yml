@@ -24,6 +24,24 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${UPLOAD_MAX_FILE_SIZE:500MB}
+      max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:512MB}
+      file-size-threshold: ${UPLOAD_MEMORY_THRESHOLD:1MB}
+
+storage:
+  endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+  access-key: ${STORAGE_ACCESS_KEY:fiapx}
+  secret-key: ${STORAGE_SECRET_KEY:fiapx12345}
+  bucket: ${STORAGE_BUCKET:fiapx}
+  region: ${STORAGE_REGION:us-east-1}
+
+video:
+  upload:
+    max-size: ${UPLOAD_MAX_FILE_SIZE:500MB}
+
 server:
   port: ${SERVER_PORT:8080}
 

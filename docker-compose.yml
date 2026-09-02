@@ -122,7 +122,7 @@ services:
       STORAGE_BUCKET: fiapx
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
-      JWT_JWKS_URI: http://auth-service:8081/.well-known/jwks.json
+      JWT_JWKS_URI: ${JWT_JWKS_URI:-http://auth-service:8081/.well-known/jwks.json}
     restart: unless-stopped
 
 volumes:
