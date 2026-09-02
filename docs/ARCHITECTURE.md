@@ -267,6 +267,18 @@ Kubernetes tiraria o pod do balanceador e o serviço pararia de aceitar upload j
 outbox existe para absorvê-lo. Por isso o grupo `readiness` inclui apenas `readinessState` e `db`.
 As probes apontam para `/actuator/health/readiness` e `/actuator/health/liveness`.
 
+**Por que URL pré-assinada em vez de servir o ZIP pelo serviço.** Se o `video-service`
+intermediasse os bytes, cada download ocuparia uma thread do Tomcat pelo tempo inteiro da
+transferência, e um punhado de downloads simultâneos de arquivos grandes derrubaria a API de
+upload junto. A URL pré-assinada tira o serviço do caminho dos dados: ele só decide *quem pode
+baixar o quê*, e o MinIO entrega. A validade curta, de 5 minutos, limita o estrago de um link
+vazado — e o objeto continua inacessível sem assinatura válida.
+
+O endpoint usado para assinar é diferente do usado para gravar (`storage.public-endpoint` contra
+`storage.endpoint`). A assinatura cobre o host, então ela precisa ser calculada sobre o endereço
+que o **navegador do usuário** vai acessar, não sobre o nome interno do serviço na rede do
+compose ou do cluster.
+
 **Por que object storage em vez de volume.** Com múltiplas réplicas, o pod que recebeu o upload
 não é o pod que serve o download, e o worker que gerou o ZIP não é nenhum dos dois. Storage
 compartilhado compatível com S3 resolve, e deixa a migração para AWS trivial.

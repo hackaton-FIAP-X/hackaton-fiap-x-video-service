@@ -1,6 +1,7 @@
 package br.com.fiap.hackaton.video.interfaces.shared;
 
 import br.com.fiap.hackaton.video.application.shared.exception.BusinessException;
+import br.com.fiap.hackaton.video.application.shared.exception.ConflictException;
 import br.com.fiap.hackaton.video.application.shared.exception.ResourceNotFoundException;
 import br.com.fiap.hackaton.video.domain.shared.exception.DomainException;
 import br.com.fiap.hackaton.video.domain.video.gateway.VideoStorageException;
@@ -31,6 +32,13 @@ public class GlobalExceptionHandler {
     log.warn("Requisicao recusada: {}", exception.getMessage());
     return ResponseEntity.badRequest()
         .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, exception.getMessage()));
+  }
+
+  @ExceptionHandler(ConflictException.class)
+  public ResponseEntity<ErrorResponse> handleConflict(ConflictException exception) {
+    log.warn("Requisicao em conflito com o estado atual: {}", exception.getMessage());
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(ErrorResponse.of(HttpStatus.CONFLICT, exception.getMessage()));
   }
 
   @ExceptionHandler(ResourceNotFoundException.class)

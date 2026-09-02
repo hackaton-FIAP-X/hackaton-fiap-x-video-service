@@ -5,6 +5,7 @@ import br.com.fiap.hackaton.video.application.video.dto.UploadVideoResponse;
 import br.com.fiap.hackaton.video.application.video.dto.VideoPageResponse;
 import br.com.fiap.hackaton.video.application.video.dto.VideoResponse;
 import br.com.fiap.hackaton.video.application.video.dto.VideoUploadCommand;
+import br.com.fiap.hackaton.video.application.video.service.VideoDownloadService;
 import br.com.fiap.hackaton.video.application.video.service.VideoQueryService;
 import br.com.fiap.hackaton.video.application.video.service.VideoService;
 import br.com.fiap.hackaton.video.domain.video.valueobject.VideoStatus;
@@ -14,8 +15,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
+import java.net.URI;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,6 +37,7 @@ public class VideoController {
 
   private final VideoService videoService;
   private final VideoQueryService videoQueryService;
+  private final VideoDownloadService videoDownloadService;
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @Operation(
@@ -91,6 +95,24 @@ public class VideoController {
       @CurrentUserId UUID userId, @PathVariable UUID videoId) {
 
     return ResponseEntity.ok(videoQueryService.findOwnedBy(userId, videoId));
+  }
+
+  @GetMapping("/{videoId}/zip")
+  @Operation(
+      summary = "Baixar o ZIP de frames",
+      description =
+          "Redireciona para uma URL pre-assinada de curta duracao no object storage. "
+              + "O servico nao intermedia os bytes do download.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "302", description = "Redirect para a URL pre-assinada"),
+    @ApiResponse(responseCode = "401", description = "Token ausente ou invalido"),
+    @ApiResponse(responseCode = "404", description = "Video inexistente ou de outro usuario"),
+    @ApiResponse(responseCode = "409", description = "Processamento ainda nao concluido")
+  })
+  public ResponseEntity<Void> downloadZip(@CurrentUserId UUID userId, @PathVariable UUID videoId) {
+
+    String presignedUrl = videoDownloadService.presignedZipUrl(userId, videoId);
+    return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(presignedUrl)).build();
   }
 
   private VideoUploadCommand toCommand(MultipartFile file) {

@@ -117,6 +117,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_PUBLIC_ENDPOINT: ${STORAGE_PUBLIC_ENDPOINT:-http://localhost:9000}
       STORAGE_ACCESS_KEY: fiapx
       STORAGE_SECRET_KEY: fiapx12345
       STORAGE_BUCKET: fiapx

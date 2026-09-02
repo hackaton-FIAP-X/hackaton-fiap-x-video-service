@@ -43,6 +43,7 @@ spring:
 
 storage:
   endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+  public-endpoint: ${STORAGE_PUBLIC_ENDPOINT:http://localhost:9000}
   access-key: ${STORAGE_ACCESS_KEY:fiapx}
   secret-key: ${STORAGE_SECRET_KEY:fiapx12345}
   bucket: ${STORAGE_BUCKET:fiapx}
@@ -51,6 +52,8 @@ storage:
 video:
   upload:
     max-size: ${UPLOAD_MAX_FILE_SIZE:500MB}
+  download:
+    url-ttl: ${DOWNLOAD_URL_TTL:5m}
   outbox:
     batch-size: ${OUTBOX_BATCH_SIZE:50}
     confirm-timeout-ms: ${OUTBOX_CONFIRM_TIMEOUT_MS:5000}
