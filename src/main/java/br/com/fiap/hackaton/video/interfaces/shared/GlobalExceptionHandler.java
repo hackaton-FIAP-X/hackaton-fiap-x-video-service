@@ -1,6 +1,7 @@
 package br.com.fiap.hackaton.video.interfaces.shared;
 
 import br.com.fiap.hackaton.video.application.shared.exception.BusinessException;
+import br.com.fiap.hackaton.video.application.shared.exception.ResourceNotFoundException;
 import br.com.fiap.hackaton.video.domain.shared.exception.DomainException;
 import br.com.fiap.hackaton.video.domain.video.gateway.VideoStorageException;
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @Slf4j
@@ -29,6 +31,21 @@ public class GlobalExceptionHandler {
     log.warn("Requisicao recusada: {}", exception.getMessage());
     return ResponseEntity.badRequest()
         .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, exception.getMessage()));
+  }
+
+  @ExceptionHandler(ResourceNotFoundException.class)
+  public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException exception) {
+    log.warn("Recurso nao encontrado: {}", exception.getMessage());
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(ErrorResponse.of(HttpStatus.NOT_FOUND, exception.getMessage()));
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ErrorResponse> handleInvalidParameter(
+      MethodArgumentTypeMismatchException exception) {
+    String message = "Valor invalido para o parametro " + exception.getName();
+    log.warn("Requisicao recusada: {}", message);
+    return ResponseEntity.badRequest().body(ErrorResponse.of(HttpStatus.BAD_REQUEST, message));
   }
 
   @ExceptionHandler(MissingServletRequestParameterException.class)
