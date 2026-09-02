@@ -5,18 +5,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.fiap.hackaton.video.application.outbox.service.OutboxDispatcher;
 import br.com.fiap.hackaton.video.application.shared.exception.BusinessException;
 import br.com.fiap.hackaton.video.application.video.dto.UploadVideoResponse;
 import br.com.fiap.hackaton.video.application.video.dto.VideoUploadCommand;
 import br.com.fiap.hackaton.video.domain.shared.exception.DomainException;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
 import br.com.fiap.hackaton.video.domain.video.gateway.VideoStorageGateway;
-import br.com.fiap.hackaton.video.domain.video.repository.VideoRepository;
 import br.com.fiap.hackaton.video.domain.video.valueobject.StorageKey;
 import br.com.fiap.hackaton.video.domain.video.valueobject.VideoStatus;
 import java.io.ByteArrayInputStream;
@@ -38,14 +39,16 @@ class VideoServiceUploadTest {
   private static final UUID USER_ID = UUID.fromString("3f2504e0-4f89-11d3-9a0c-0305e82c3301");
   private static final DataSize MAX_SIZE = DataSize.ofMegabytes(500);
 
-  @Mock private VideoRepository videoRepository;
   @Mock private VideoStorageGateway storageGateway;
+  @Mock private VideoRegistrationService registrationService;
+  @Mock private OutboxDispatcher outboxDispatcher;
 
   private VideoService videoService;
 
   @BeforeEach
   void setUp() {
-    videoService = new VideoService(videoRepository, storageGateway, MAX_SIZE);
+    videoService =
+        new VideoService(storageGateway, registrationService, outboxDispatcher, MAX_SIZE);
   }
 
   private VideoUploadCommand command(String filename, long size) {
@@ -53,14 +56,15 @@ class VideoServiceUploadTest {
     return new VideoUploadCommand(filename, size, content);
   }
 
-  private void repositoryEchoesEntity() {
-    when(videoRepository.save(any(Video.class))).thenAnswer(call -> call.getArgument(0));
+  private void registrationEchoesEntity() {
+    when(registrationService.registerReceived(any(Video.class), anyString()))
+        .thenAnswer(call -> call.getArgument(0));
   }
 
   @Test
   @DisplayName("Deve aceitar o upload e devolver o video em RECEIVED")
   void deveAceitarUpload() {
-    repositoryEchoesEntity();
+    registrationEchoesEntity();
 
     UploadVideoResponse response = videoService.upload(USER_ID, command("aula.mp4", 2_048));
 
@@ -71,7 +75,7 @@ class VideoServiceUploadTest {
   @Test
   @DisplayName("Deve gravar no storage com a chave e o content type do contrato")
   void deveGravarNoStorageComChaveDoContrato() {
-    repositoryEchoesEntity();
+    registrationEchoesEntity();
 
     UploadVideoResponse response = videoService.upload(USER_ID, command("aula.mp4", 2_048));
 
@@ -86,30 +90,47 @@ class VideoServiceUploadTest {
   }
 
   @Test
-  @DisplayName("Deve gravar no storage antes de persistir, para nao deixar linha sem arquivo")
-  void deveGravarNoStorageAntesDePersistir() {
-    repositoryEchoesEntity();
+  @DisplayName("Deve gravar no storage antes de registrar, para nao deixar linha sem arquivo")
+  void deveGravarNoStorageAntesDeRegistrar() {
+    registrationEchoesEntity();
 
     videoService.upload(USER_ID, command("aula.mp4", 2_048));
 
-    InOrder ordem = inOrder(storageGateway, videoRepository);
+    InOrder ordem = inOrder(storageGateway, registrationService, outboxDispatcher);
     ordem.verify(storageGateway).store(any(), any(), anyLong(), anyString());
-    ordem.verify(videoRepository).save(any(Video.class));
+    ordem.verify(registrationService).registerReceived(any(Video.class), anyString());
+    ordem.verify(outboxDispatcher).dispatchPending();
   }
 
   @Test
-  @DisplayName("Deve persistir o video com o dono do token")
-  void devePersistirComDonoDoToken() {
-    repositoryEchoesEntity();
+  @DisplayName("Deve registrar o video com o dono do token e um traceId")
+  void deveRegistrarComDonoDoToken() {
+    registrationEchoesEntity();
 
     videoService.upload(USER_ID, command("aula.mp4", 2_048));
 
     ArgumentCaptor<Video> video = ArgumentCaptor.forClass(Video.class);
-    verify(videoRepository).save(video.capture());
+    ArgumentCaptor<String> traceId = ArgumentCaptor.forClass(String.class);
+    verify(registrationService).registerReceived(video.capture(), traceId.capture());
 
     assertThat(video.getValue().getUserId()).isEqualTo(USER_ID);
     assertThat(video.getValue().getStatus()).isEqualTo(VideoStatus.RECEIVED);
     assertThat(video.getValue().getOriginalFilename()).isEqualTo("aula.mp4");
+    assertThat(traceId.getValue()).isNotBlank();
+  }
+
+  @Test
+  @DisplayName("Deve responder ao usuario mesmo quando a publicacao imediata falha")
+  void deveResponderMesmoComBrokerForaDoAr() {
+    registrationEchoesEntity();
+    doThrow(new IllegalStateException("broker fora do ar"))
+        .when(outboxDispatcher)
+        .dispatchPending();
+
+    UploadVideoResponse response = videoService.upload(USER_ID, command("aula.mp4", 2_048));
+
+    assertThat(response.status()).isEqualTo(VideoStatus.RECEIVED);
+    verify(registrationService).registerReceived(any(Video.class), anyString());
   }
 
   @Test
@@ -119,7 +140,7 @@ class VideoServiceUploadTest {
         .isInstanceOf(DomainException.class);
 
     verify(storageGateway, never()).store(any(), any(), anyLong(), anyString());
-    verify(videoRepository, never()).save(any());
+    verify(registrationService, never()).registerReceived(any(), anyString());
   }
 
   @Test
@@ -147,7 +168,7 @@ class VideoServiceUploadTest {
   @Test
   @DisplayName("Deve aceitar arquivo exatamente no limite")
   void deveAceitarArquivoNoLimite() {
-    repositoryEchoesEntity();
+    registrationEchoesEntity();
 
     UploadVideoResponse response =
         videoService.upload(USER_ID, command("aula.mp4", MAX_SIZE.toBytes()));
@@ -156,15 +177,15 @@ class VideoServiceUploadTest {
   }
 
   @Test
-  @DisplayName("Nao deve persistir o video quando o storage falha")
-  void naoDevePersistirQuandoStorageFalha() {
-    org.mockito.Mockito.doThrow(new IllegalStateException("minio fora do ar"))
+  @DisplayName("Nao deve registrar o video quando o storage falha")
+  void naoDeveRegistrarQuandoStorageFalha() {
+    doThrow(new IllegalStateException("minio fora do ar"))
         .when(storageGateway)
         .store(any(), any(), anyLong(), anyString());
 
     assertThatThrownBy(() -> videoService.upload(USER_ID, command("aula.mp4", 2_048)))
         .isInstanceOf(IllegalStateException.class);
 
-    verify(videoRepository, never()).save(any());
+    verify(registrationService, never()).registerReceived(any(), anyString());
   }
 }

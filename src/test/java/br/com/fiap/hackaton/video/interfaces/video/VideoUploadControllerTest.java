@@ -1,13 +1,19 @@
 package br.com.fiap.hackaton.video.interfaces.video;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import br.com.fiap.hackaton.video.domain.outbox.entity.OutboxEvent;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
+import br.com.fiap.hackaton.video.domain.video.gateway.EventPublishException;
+import br.com.fiap.hackaton.video.domain.video.gateway.VideoEventPublisher;
 import br.com.fiap.hackaton.video.domain.video.gateway.VideoStorageGateway;
 import br.com.fiap.hackaton.video.domain.video.valueobject.VideoStatus;
+import br.com.fiap.hackaton.video.infrastructure.persistence.outbox.OutboxJpaRepository;
 import br.com.fiap.hackaton.video.infrastructure.persistence.video.VideoJpaRepository;
 import br.com.fiap.hackaton.video.infrastructure.security.JwtFixture;
 import br.com.fiap.hackaton.video.infrastructure.security.SecurityTestConfig;
@@ -36,8 +42,10 @@ class VideoUploadControllerTest {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private VideoJpaRepository videoJpaRepository;
+  @Autowired private OutboxJpaRepository outboxJpaRepository;
 
   @MockBean private VideoStorageGateway storageGateway;
+  @MockBean private VideoEventPublisher eventPublisher;
 
   private String token() {
     return "Bearer " + JwtFixture.validToken(USER_ID);
@@ -47,8 +55,18 @@ class VideoUploadControllerTest {
     return new MockMultipartFile("file", filename, "video/mp4", content);
   }
 
+  private void upload(String filename) throws Exception {
+    mockMvc
+        .perform(
+            multipart("/videos")
+                .file(videoFile(filename, "conteudo-do-video".getBytes()))
+                .header(HttpHeaders.AUTHORIZATION, token()))
+        .andExpect(status().isAccepted());
+  }
+
   @BeforeEach
   void limparBase() {
+    outboxJpaRepository.deleteAll();
     videoJpaRepository.deleteAll();
   }
 
@@ -68,20 +86,62 @@ class VideoUploadControllerTest {
   @Test
   @DisplayName("Deve persistir o video escopado ao dono do token")
   void devePersistirVideoDoDono() throws Exception {
-    mockMvc
-        .perform(
-            multipart("/videos")
-                .file(videoFile("aula-01.mp4", "conteudo-do-video".getBytes()))
-                .header(HttpHeaders.AUTHORIZATION, token()))
-        .andExpect(status().isAccepted());
+    upload("aula-01.mp4");
 
     List<Video> persistidos = videoJpaRepository.findAll();
     assertThat(persistidos).hasSize(1);
     assertThat(persistidos.getFirst().getUserId()).isEqualTo(USER_ID);
-    assertThat(persistidos.getFirst().getStatus()).isEqualTo(VideoStatus.RECEIVED);
     assertThat(persistidos.getFirst().getStorageKey())
         .startsWith("fiapx/inputs/%s/".formatted(USER_ID))
         .endsWith("/aula-01.mp4");
+  }
+
+  @Test
+  @DisplayName("Deve gravar o evento no outbox e publica-lo na mesma requisicao")
+  void deveGravarEPublicarEvento() throws Exception {
+    upload("aula-01.mp4");
+
+    List<OutboxEvent> eventos = outboxJpaRepository.findAll();
+    assertThat(eventos).hasSize(1);
+    assertThat(eventos.getFirst().getEventType()).isEqualTo("video.uploaded");
+    assertThat(eventos.getFirst().isPublished()).isTrue();
+    assertThat(eventos.getFirst().getPayload())
+        .contains("\"storageKey\"", "\"originalFilename\":\"aula-01.mp4\"", "\"fps\":1")
+        .contains("\"userId\":\"%s\"".formatted(USER_ID));
+
+    assertThat(videoJpaRepository.findAll().getFirst().getStatus()).isEqualTo(VideoStatus.QUEUED);
+  }
+
+  @Test
+  @DisplayName("Deve aceitar o upload e reter o evento quando o broker esta fora do ar")
+  void deveReterEventoComBrokerForaDoAr() throws Exception {
+    doThrow(new EventPublishException("broker fora do ar"))
+        .when(eventPublisher)
+        .publishConfirmed(any(OutboxEvent.class));
+
+    upload("aula-01.mp4");
+
+    List<OutboxEvent> eventos = outboxJpaRepository.findAll();
+    assertThat(eventos).hasSize(1);
+    assertThat(eventos.getFirst().isPublished()).isFalse();
+    assertThat(eventos.getFirst().getAttempts()).isEqualTo(1);
+
+    assertThat(videoJpaRepository.findAll().getFirst().getStatus()).isEqualTo(VideoStatus.RECEIVED);
+  }
+
+  @Test
+  @DisplayName("Nao deve perder nenhum upload feito com o broker fora do ar")
+  void naoDevePerderUploadsComBrokerForaDoAr() throws Exception {
+    doThrow(new EventPublishException("broker fora do ar"))
+        .when(eventPublisher)
+        .publishConfirmed(any(OutboxEvent.class));
+
+    for (int i = 1; i <= 5; i++) {
+      upload("aula-0%d.mp4".formatted(i));
+    }
+
+    assertThat(videoJpaRepository.findAll()).hasSize(5);
+    assertThat(outboxJpaRepository.countByPublishedAtIsNull()).isEqualTo(5);
   }
 
   @Test
@@ -109,6 +169,7 @@ class VideoUploadControllerTest {
             jsonPath("$.message").value(org.hamcrest.Matchers.containsString("nao suportado")));
 
     assertThat(videoJpaRepository.findAll()).isEmpty();
+    assertThat(outboxJpaRepository.findAll()).isEmpty();
   }
 
   @Test

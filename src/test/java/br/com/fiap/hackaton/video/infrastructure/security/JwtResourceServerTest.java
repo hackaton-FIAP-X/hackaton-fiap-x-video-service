@@ -100,9 +100,19 @@ class JwtResourceServerTest {
   }
 
   @Test
-  @DisplayName("Deve liberar o health check sem token, para as probes do Kubernetes")
-  void deveLiberarHealthSemToken() throws Exception {
-    mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
+  @DisplayName("Deve liberar as probes do Kubernetes sem token")
+  void deveLiberarProbesSemToken() throws Exception {
+    mockMvc.perform(get("/actuator/health/liveness")).andExpect(status().isOk());
+    mockMvc.perform(get("/actuator/health/readiness")).andExpect(status().isOk());
+  }
+
+  @Test
+  @DisplayName("Deve manter o readiness em UP com o RabbitMQ fora do ar")
+  void deveManterReadinessComBrokerForaDoAr() throws Exception {
+    mockMvc
+        .perform(get("/actuator/health/readiness"))
+        .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("\"status\":\"UP\"")));
   }
 
   @Test

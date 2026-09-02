@@ -197,8 +197,11 @@ Kafka, mexe **só aqui**.
 infrastructure/persistence/video/VideoJpaRepository.java     Spring Data
 infrastructure/persistence/video/VideoRepositoryImpl.java    implements VideoRepository
 infrastructure/storage/MinioStorageAdapter.java              implements VideoStorageGateway
+infrastructure/messaging/RabbitMqConfig.java                 exchange, filas quorum e DLX
 infrastructure/messaging/RabbitVideoEventPublisher.java      implements VideoEventPublisher
+infrastructure/messaging/OutboxPublisherScheduler.java       rede de segurança do outbox
 infrastructure/messaging/VideoStatusConsumer.java            consumidor dos eventos do worker
+infrastructure/persistence/outbox/                           adaptador do outbox
 infrastructure/security/SecurityConfig.java                  resource server JWT + JWKS
 infrastructure/security/SubjectIsUuidValidator.java          recusa token cujo sub não é UUID
 infrastructure/security/CurrentUserId.java                   anotação de parâmetro de controller
@@ -251,6 +254,18 @@ da capacidade de recepção.
 **Por que JWT com JWKS em vez de chamar o auth-service.** Validação offline com chave pública
 elimina uma chamada de rede por request e remove o `auth-service` do caminho crítico. Se ele
 cair, o `video-service` continua autenticando.
+
+**Por que outbox em vez de publicar direto no RabbitMQ.** Publicar dentro do request cria duas
+escritas sem transação comum: se o commit no Postgres passar e a publicação falhar, o vídeo fica
+parado para sempre; se a publicação passar e o commit falhar, o worker processa um vídeo que não
+existe. Gravando o evento na mesma transação do vídeo, o Postgres vira a fonte da verdade e o
+RabbitMQ passa a ser um detalhe de entrega — que pode estar fora do ar sem custar uma requisição.
+
+**Por que o readiness não olha o RabbitMQ.** O `/actuator/health` agregado fica `DOWN` quando o
+broker cai, e isso é correto para alerta. Mas se o *readiness probe* usasse esse endpoint, o
+Kubernetes tiraria o pod do balanceador e o serviço pararia de aceitar upload justamente quando o
+outbox existe para absorvê-lo. Por isso o grupo `readiness` inclui apenas `readinessState` e `db`.
+As probes apontam para `/actuator/health/readiness` e `/actuator/health/liveness`.
 
 **Por que object storage em vez de volume.** Com múltiplas réplicas, o pod que recebeu o upload
 não é o pod que serve o download, e o worker que gerou o ZIP não é nenhum dos dois. Storage

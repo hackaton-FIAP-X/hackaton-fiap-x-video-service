@@ -1,31 +1,36 @@
 package br.com.fiap.hackaton.video.application.video.service;
 
+import br.com.fiap.hackaton.video.application.outbox.service.OutboxDispatcher;
 import br.com.fiap.hackaton.video.application.shared.exception.BusinessException;
 import br.com.fiap.hackaton.video.application.video.dto.UploadVideoResponse;
 import br.com.fiap.hackaton.video.application.video.dto.VideoUploadCommand;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
 import br.com.fiap.hackaton.video.domain.video.gateway.VideoStorageGateway;
-import br.com.fiap.hackaton.video.domain.video.repository.VideoRepository;
 import br.com.fiap.hackaton.video.domain.video.valueobject.StorageKey;
 import br.com.fiap.hackaton.video.domain.video.valueobject.VideoFormat;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.unit.DataSize;
 
+@Slf4j
 @Service
 public class VideoService {
 
-  private final VideoRepository videoRepository;
   private final VideoStorageGateway storageGateway;
+  private final VideoRegistrationService registrationService;
+  private final OutboxDispatcher outboxDispatcher;
   private final DataSize maxUploadSize;
 
   public VideoService(
-      VideoRepository videoRepository,
       VideoStorageGateway storageGateway,
+      VideoRegistrationService registrationService,
+      OutboxDispatcher outboxDispatcher,
       @Value("${video.upload.max-size}") DataSize maxUploadSize) {
-    this.videoRepository = videoRepository;
     this.storageGateway = storageGateway;
+    this.registrationService = registrationService;
+    this.outboxDispatcher = outboxDispatcher;
     this.maxUploadSize = maxUploadSize;
   }
 
@@ -40,7 +45,19 @@ public class VideoService {
         command.sizeInBytes(),
         format.contentType());
 
-    return UploadVideoResponse.fromEntity(videoRepository.save(video));
+    Video registered =
+        registrationService.registerReceived(video, VideoRegistrationService.newTraceId());
+    dispatchWithoutBlockingTheResponse();
+
+    return UploadVideoResponse.fromEntity(registered);
+  }
+
+  private void dispatchWithoutBlockingTheResponse() {
+    try {
+      outboxDispatcher.dispatchPending();
+    } catch (RuntimeException e) {
+      log.warn("Publicacao imediata falhou; o scheduler do outbox assume: {}", e.getMessage());
+    }
   }
 
   private void validateSize(long sizeInBytes) {

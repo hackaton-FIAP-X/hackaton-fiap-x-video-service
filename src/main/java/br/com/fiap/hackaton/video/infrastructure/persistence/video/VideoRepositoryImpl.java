@@ -19,6 +19,11 @@ public class VideoRepositoryImpl implements VideoRepository {
   }
 
   @Override
+  public Optional<Video> findById(UUID id) {
+    return jpaRepository.findById(id);
+  }
+
+  @Override
   public Optional<Video> findByIdAndUserId(UUID id, UUID userId) {
     return jpaRepository.findByIdAndUserId(id, userId);
   }

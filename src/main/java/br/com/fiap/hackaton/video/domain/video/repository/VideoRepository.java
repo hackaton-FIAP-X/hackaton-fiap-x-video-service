@@ -8,5 +8,7 @@ public interface VideoRepository {
 
   Video save(Video video);
 
+  Optional<Video> findById(UUID id);
+
   Optional<Video> findByIdAndUserId(UUID id, UUID userId);
 }
