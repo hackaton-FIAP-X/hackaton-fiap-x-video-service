@@ -205,12 +205,12 @@ class VideoQueryControllerTest {
             get("/videos/{id}", videoDaAlice.getId())
                 .header(HttpHeaders.AUTHORIZATION, tokenOf(BOB)))
         .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.error").value("Not Found"));
+        .andExpect(jsonPath("$.title").value("Recurso nao encontrado"));
 
     mockMvc
         .perform(get("/videos/{id}", inexistente).header(HttpHeaders.AUTHORIZATION, tokenOf(BOB)))
         .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.error").value("Not Found"));
+        .andExpect(jsonPath("$.title").value("Recurso nao encontrado"));
   }
 
   @Test

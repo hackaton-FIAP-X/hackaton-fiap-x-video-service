@@ -80,6 +80,23 @@ GET  /videos/{id}/zip                            → 302 Location: <presigned ur
 O `404` no lugar de `403` é deliberado: devolver `403` confirmaria que o vídeo existe e vazaria
 informação sobre a conta de outro usuário.
 
+Todo erro sai em `application/problem+json` (RFC 7807), inclusive os `401` e `403`, que no padrão
+do Spring Security responderiam com corpo vazio:
+
+```json
+{
+  "type": "https://fiapx.com.br/problems/video-not-ready",
+  "title": "Video ainda nao disponivel",
+  "status": 409,
+  "detail": "Video ainda nao esta disponivel para download. Status atual: QUEUED",
+  "instance": "/videos/c8e6da94-.../zip",
+  "timestamp": "2026-09-02T01:23:33.588Z"
+}
+```
+
+O `type` é uma URI estável por classe de erro, então o cliente pode tratar programaticamente sem
+depender do texto da mensagem, que é humano e pode mudar.
+
 ### 3.2 JWT
 
 ```

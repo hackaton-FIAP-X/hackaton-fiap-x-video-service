@@ -33,7 +33,8 @@ public class SecurityConfig {
   };
 
   @Bean
-  public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder)
+  public SecurityFilterChain securityFilterChain(
+      HttpSecurity http, JwtDecoder jwtDecoder, ProblemDetailSecurityResponder problemResponder)
       throws Exception {
     return http.csrf(csrf -> csrf.disable())
         .cors(cors -> cors.disable())
@@ -48,7 +49,17 @@ public class SecurityConfig {
                     .permitAll()
                     .anyRequest()
                     .authenticated())
-        .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(jwtDecoder)))
+        .oauth2ResourceServer(
+            oauth2 ->
+                oauth2
+                    .jwt(jwt -> jwt.decoder(jwtDecoder))
+                    .authenticationEntryPoint(problemResponder)
+                    .accessDeniedHandler(problemResponder))
+        .exceptionHandling(
+            exceptions ->
+                exceptions
+                    .authenticationEntryPoint(problemResponder)
+                    .accessDeniedHandler(problemResponder))
         .build();
   }
 

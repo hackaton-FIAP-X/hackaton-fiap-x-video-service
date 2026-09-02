@@ -166,7 +166,7 @@ class VideoUploadControllerTest {
                 .header(HttpHeaders.AUTHORIZATION, token()))
         .andExpect(status().isBadRequest())
         .andExpect(
-            jsonPath("$.message").value(org.hamcrest.Matchers.containsString("nao suportado")));
+            jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("nao suportado")));
 
     assertThat(videoJpaRepository.findAll()).isEmpty();
     assertThat(outboxJpaRepository.findAll()).isEmpty();

@@ -53,6 +53,10 @@ spring:
       timeout: ${REDIS_TIMEOUT:2s}
       connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
 
+  mvc:
+    problemdetails:
+      enabled: true
+
   servlet:
     multipart:
       enabled: true

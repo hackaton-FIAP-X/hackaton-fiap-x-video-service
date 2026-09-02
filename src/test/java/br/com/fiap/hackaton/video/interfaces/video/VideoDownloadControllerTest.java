@@ -92,7 +92,7 @@ class VideoDownloadControllerTest {
             get("/videos/{id}/zip", video.getId())
                 .header(HttpHeaders.AUTHORIZATION, tokenOf(ALICE)))
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("RECEIVED")));
+        .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("RECEIVED")));
 
     verify(storageGateway, never()).presignedDownloadUrl(any(), any());
   }
