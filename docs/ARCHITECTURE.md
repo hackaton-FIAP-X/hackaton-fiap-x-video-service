@@ -92,6 +92,14 @@ claims extras: email, name
 O `userId` **sempre** sai do claim `sub` do token. Nunca de um parâmetro de request, nunca de um
 header. Toda query ao banco é escopada por ele.
 
+Um token cujo `sub` não seja um UUID é rejeitado ainda na validação, com `401`. Isso deixa o
+resto do código livre para tratar o `userId` como um UUID confiável, sem `try/catch` espalhado.
+
+Enquanto o `shared/security-commons` da Trilha A (AUTH-5) não existir, a configuração do resource
+server vive em `infrastructure/security/` deste serviço. Quando o módulo compartilhado chegar,
+o que sai daqui é o `SecurityConfig`; o `CurrentUserId` e o resolver continuam, porque são a
+tradução entre o token e a assinatura dos controllers.
+
 ### 3.3 Eventos — exchange `fiapx.video` (topic)
 
 ```
@@ -191,7 +199,10 @@ infrastructure/persistence/video/VideoRepositoryImpl.java    implements VideoRep
 infrastructure/storage/MinioStorageAdapter.java              implements VideoStorageGateway
 infrastructure/messaging/RabbitVideoEventPublisher.java      implements VideoEventPublisher
 infrastructure/messaging/VideoStatusConsumer.java            consumidor dos eventos do worker
-infrastructure/security/                                     resource server JWT + JWKS
+infrastructure/security/SecurityConfig.java                  resource server JWT + JWKS
+infrastructure/security/SubjectIsUuidValidator.java          recusa token cujo sub não é UUID
+infrastructure/security/CurrentUserId.java                   anotação de parâmetro de controller
+infrastructure/security/CurrentUserIdArgumentResolver.java   injeta o userId do claim sub
 infrastructure/config/                                       beans de configuração
 infrastructure/observability/                                métricas Micrometer
 ```
