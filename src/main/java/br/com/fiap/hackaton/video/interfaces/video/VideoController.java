@@ -1,5 +1,6 @@
 package br.com.fiap.hackaton.video.interfaces.video;
 
+import br.com.fiap.hackaton.security.commons.CurrentUserId;
 import br.com.fiap.hackaton.video.application.shared.exception.BusinessException;
 import br.com.fiap.hackaton.video.application.video.dto.UploadVideoResponse;
 import br.com.fiap.hackaton.video.application.video.dto.VideoPageResponse;
@@ -9,7 +10,6 @@ import br.com.fiap.hackaton.video.application.video.service.VideoDownloadService
 import br.com.fiap.hackaton.video.application.video.service.VideoQueryService;
 import br.com.fiap.hackaton.video.application.video.service.VideoService;
 import br.com.fiap.hackaton.video.domain.video.valueobject.VideoStatus;
-import br.com.fiap.hackaton.video.infrastructure.security.CurrentUserId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

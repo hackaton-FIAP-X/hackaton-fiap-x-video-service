@@ -85,7 +85,7 @@ do Spring Security responderiam com corpo vazio:
 
 ```json
 {
-  "type": "https://fiapx.com.br/problems/video-not-ready",
+  "type": "urn:problem-type:video-not-ready",
   "title": "Video ainda nao disponivel",
   "status": 409,
   "detail": "Video ainda nao esta disponivel para download. Status atual: QUEUED",
@@ -95,7 +95,9 @@ do Spring Security responderiam com corpo vazio:
 ```
 
 O `type` é uma URI estável por classe de erro, então o cliente pode tratar programaticamente sem
-depender do texto da mensagem, que é humano e pode mudar.
+depender do texto da mensagem, que é humano e pode mudar. O esquema `urn:problem-type:` é o que o
+`security-commons` já usa para `401` e `403`; os tipos de negócio deste serviço seguem o mesmo
+esquema para o cliente não ter de lidar com dois formatos na mesma API.
 
 ### 3.2 JWT
 
@@ -112,10 +114,26 @@ header. Toda query ao banco é escopada por ele.
 Um token cujo `sub` não seja um UUID é rejeitado ainda na validação, com `401`. Isso deixa o
 resto do código livre para tratar o `userId` como um UUID confiável, sem `try/catch` espalhado.
 
-Enquanto o `shared/security-commons` da Trilha A (AUTH-5) não existir, a configuração do resource
-server vive em `infrastructure/security/` deste serviço. Quando o módulo compartilhado chegar,
-o que sai daqui é o `SecurityConfig`; o `CurrentUserId` e o resolver continuam, porque são a
-tradução entre o token e a assinatura dos controllers.
+A autenticação inteira vem do módulo **`security-commons`** que a Trilha A entregou no AUTH-5.
+Este serviço não tem nenhuma classe de segurança própria: o `SecurityFilterChain`, o `JwtDecoder`,
+a validação do `sub`, a anotação `@CurrentUserId` e a resposta `problem+json` de `401`/`403` são
+todos autoconfigurados pelo módulo. O que o serviço faz é declarar a dependência e duas
+propriedades:
+
+```yaml
+security:
+  jwt:
+    jwks-uri: http://auth-service:8081/.well-known/jwks.json
+    issuer: fiapx-auth
+```
+
+A lista de rotas públicas do módulo já é exatamente a que este serviço precisa (health, info,
+prometheus e a documentação OpenAPI); se um dia divergir, basta `security.jwt.public-endpoints`.
+
+**Cuidado que o README do módulo destaca:** a autoconfiguração só ativa com `security.jwt.jwks-uri`
+preenchido. Sem essa propriedade, o `spring-boot-starter-security` que chega transitivamente faz o
+Spring Boot proteger tudo com HTTP Basic e uma senha aleatória no log. O teste de integração cobre
+esse caso indiretamente, porque um `401` com HTTP Basic não traria o corpo `problem+json`.
 
 ### 3.3 Eventos — exchange `fiapx.video` (topic)
 
@@ -226,10 +244,7 @@ infrastructure/messaging/RabbitVideoEventPublisher.java      implements VideoEve
 infrastructure/messaging/OutboxPublisherScheduler.java       rede de segurança do outbox
 infrastructure/messaging/VideoStatusConsumer.java            consumidor dos eventos do worker
 infrastructure/persistence/outbox/                           adaptador do outbox
-infrastructure/security/SecurityConfig.java                  resource server JWT + JWKS
-infrastructure/security/SubjectIsUuidValidator.java          recusa token cujo sub não é UUID
-infrastructure/security/CurrentUserId.java                   anotação de parâmetro de controller
-infrastructure/security/CurrentUserIdArgumentResolver.java   injeta o userId do claim sub
+(segurança inteira vem do security-commons — nenhuma classe própria aqui)
 infrastructure/config/                                       beans de configuração
 infrastructure/observability/                                métricas Micrometer
 ```
@@ -415,10 +430,17 @@ docker image inspect fiapx/video-service:local --format '{{.Size}}'
 Tudo sobe em container. Não é necessário ter Java nem Maven instalados na máquina.
 
 ```bash
-make up         # sobe Postgres, RabbitMQ, MinIO, Redis, Mailhog e o serviço
+make security-commons   # só na primeira vez, ou quando a Trilha A publicar uma versão nova
+make up                 # sobe Postgres, RabbitMQ, MinIO, Redis, Mailhog e o serviço
 make logs
 make down
 ```
+
+O `security-commons` é publicado pela Trilha A no GitHub Packages, cujo download exige um token com
+`read:packages`. Quem tiver o repositório do `auth-service` clonado ao lado deste dispensa o token:
+`make security-commons` compila o módulo e o instala no cache Maven que tanto o `make build` quanto
+o `docker compose` usam. Sem uma das duas coisas, o build falha com `401 Unauthorized` ao resolver
+a dependência.
 
 Se a porta `8080` já estiver ocupada por outro projeto na máquina, copie `.env.example` para
 `.env` e ajuste `VIDEO_SERVICE_PORT`. A porta **interna** do container continua sendo `8080` em

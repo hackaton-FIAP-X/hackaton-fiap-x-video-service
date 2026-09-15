@@ -13,7 +13,16 @@ MAVEN_RUN_IT := docker run --rm --network host \
 	-e DOCKER_API_VERSION=$(DOCKER_API_VERSION) \
 	-w /app $(MAVEN_IMAGE)
 
-.PHONY: up down logs build test format coverage clean
+.PHONY: up down logs build test format coverage clean security-commons
+
+# A Trilha A publica o security-commons no GitHub Packages, que exige um token
+# read:packages. Quem tiver o repositorio do auth-service ao lado instala no
+# cache local e dispensa o token.
+SECURITY_COMMONS_DIR ?= ../hackaton-fiap-x-auth-service/security-commons
+
+security-commons:
+	docker run --rm -v "$(abspath $(SECURITY_COMMONS_DIR))":/mod -v fiapx-maven-cache:/root/.m2 \
+		-w /mod $(MAVEN_IMAGE) mvn -B install -DskipTests -Dspotless.check.skip=true
 
 up:
 	docker compose up -d --build

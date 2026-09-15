@@ -102,7 +102,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./pom.xml:/app/pom.xml
-      - maven-cache:/root/.m2
+      - fiapx-maven-cache:/root/.m2
     environment:
       SPRING_PROFILES_ACTIVE: dev
       DB_HOST: postgres
@@ -130,4 +130,5 @@ volumes:
   postgres-data:
   rabbitmq-data:
   minio-data:
-  maven-cache:
+  fiapx-maven-cache:
+    external: true

@@ -63,7 +63,7 @@ class ProblemDetailResponseTest {
         .perform(get("/videos/{id}", inexistente).header(HttpHeaders.AUTHORIZATION, tokenOf(ALICE)))
         .andExpect(status().isNotFound())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.type").value("https://fiapx.com.br/problems/resource-not-found"))
+        .andExpect(jsonPath("$.type").value("urn:problem-type:resource-not-found"))
         .andExpect(jsonPath("$.title").value("Recurso nao encontrado"))
         .andExpect(jsonPath("$.status").value(404))
         .andExpect(jsonPath("$.detail").exists())
@@ -82,7 +82,7 @@ class ProblemDetailResponseTest {
                 .header(HttpHeaders.AUTHORIZATION, tokenOf(ALICE)))
         .andExpect(status().isConflict())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.type").value("https://fiapx.com.br/problems/video-not-ready"))
+        .andExpect(jsonPath("$.type").value("urn:problem-type:video-not-ready"))
         .andExpect(jsonPath("$.status").value(409));
   }
 
@@ -98,7 +98,7 @@ class ProblemDetailResponseTest {
                 .header(HttpHeaders.AUTHORIZATION, tokenOf(ALICE)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.type").value("https://fiapx.com.br/problems/invalid-request"))
+        .andExpect(jsonPath("$.type").value("urn:problem-type:invalid-request"))
         .andExpect(jsonPath("$.title").value("Requisicao invalida"));
   }
 
@@ -123,8 +123,8 @@ class ProblemDetailResponseTest {
         .perform(get("/videos"))
         .andExpect(status().isUnauthorized())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.type").value("https://fiapx.com.br/problems/unauthorized"))
-        .andExpect(jsonPath("$.title").value("Nao autenticado"))
+        .andExpect(jsonPath("$.type").value("urn:problem-type:unauthorized"))
+        .andExpect(jsonPath("$.title").value("Unauthorized"))
         .andExpect(jsonPath("$.status").value(401))
         .andExpect(jsonPath("$.instance").value("/videos"))
         .andExpect(jsonPath("$.timestamp").exists());
@@ -137,7 +137,7 @@ class ProblemDetailResponseTest {
         .perform(get("/videos").header(HttpHeaders.AUTHORIZATION, "Bearer nao-e-um-jwt"))
         .andExpect(status().isUnauthorized())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.type").value("https://fiapx.com.br/problems/unauthorized"));
+        .andExpect(jsonPath("$.type").value("urn:problem-type:unauthorized"));
   }
 
   @Test
@@ -150,14 +150,14 @@ class ProblemDetailResponseTest {
             get("/videos/{id}", videoDaAlice.getId())
                 .header(HttpHeaders.AUTHORIZATION, tokenOf(BOB)))
         .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.type").value("https://fiapx.com.br/problems/resource-not-found"))
+        .andExpect(jsonPath("$.type").value("urn:problem-type:resource-not-found"))
         .andExpect(jsonPath("$.title").value("Recurso nao encontrado"));
 
     mockMvc
         .perform(
             get("/videos/{id}", UUID.randomUUID()).header(HttpHeaders.AUTHORIZATION, tokenOf(BOB)))
         .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.type").value("https://fiapx.com.br/problems/resource-not-found"))
+        .andExpect(jsonPath("$.type").value("urn:problem-type:resource-not-found"))
         .andExpect(jsonPath("$.title").value("Recurso nao encontrado"));
   }
 

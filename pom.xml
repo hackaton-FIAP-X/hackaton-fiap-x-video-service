@@ -19,6 +19,7 @@
         <springdoc.version>2.6.0</springdoc.version>
         <aws-sdk.version>2.25.70</aws-sdk.version>
         <testcontainers.version>1.20.4</testcontainers.version>
+        <security-commons.version>1.0.0-SNAPSHOT</security-commons.version>
         <!-- O docker-java embute api.version=1.32, abaixo do minimo dos daemons atuais -->
         <docker.api.version>1.41</docker.api.version>
         <maven.compiler.source>21</maven.compiler.source>
@@ -32,6 +33,17 @@
         <version>3.3.4</version>
         <relativePath/>
     </parent>
+
+    <repositories>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages - hackaton-FIAP-X</name>
+            <url>https://maven.pkg.github.com/hackaton-FIAP-X/hackaton-fiap-x-auth-service</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
     <dependencies>
         <dependency>
@@ -63,12 +75,9 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+            <groupId>br.com.fiap.hackaton.security</groupId>
+            <artifactId>security-commons</artifactId>
+            <version>${security-commons.version}</version>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
