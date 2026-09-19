@@ -57,6 +57,17 @@ spring:
     problemdetails:
       enabled: true
 
+  # PLT-8: aviso de falha por e-mail. Mailhog no ambiente local (porta 1025).
+  # Timeouts curtos: o envio roda no consumer da fila de status e um SMTP lento
+  # nao pode segurar o consumo.
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    properties:
+      mail.smtp.connectiontimeout: 2000
+      mail.smtp.timeout: 3000
+      mail.smtp.writetimeout: 3000
+
   servlet:
     multipart:
       enabled: true
@@ -101,6 +112,11 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  health:
+    # PLT-8: e-mail nao e dependencia para servir; SMTP fora do ar nao pode
+    # derrubar o health (o aviso de falha so vira log)
+    mail:
+      enabled: false
   endpoint:
     health:
       show-details: always
@@ -125,3 +141,8 @@ springdoc:
 logging:
   level:
     br.com.fiap.hackaton.video: ${LOG_LEVEL:INFO}
+
+notification:
+  email:
+    enabled: ${NOTIFICATION_EMAIL_ENABLED:true}
+    from: ${NOTIFICATION_EMAIL_FROM:FIAP X <no-reply@fiapx.local>}

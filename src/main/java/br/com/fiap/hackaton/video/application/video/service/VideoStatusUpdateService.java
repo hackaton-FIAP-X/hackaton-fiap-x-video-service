@@ -1,6 +1,7 @@
 package br.com.fiap.hackaton.video.application.video.service;
 
 import br.com.fiap.hackaton.video.application.video.dto.VideoFailedEvent;
+import br.com.fiap.hackaton.video.application.video.dto.VideoFailureNotification;
 import br.com.fiap.hackaton.video.application.video.dto.VideoProcessedEvent;
 import br.com.fiap.hackaton.video.application.video.gateway.VideoListingCache;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
@@ -9,6 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,7 @@ public class VideoStatusUpdateService {
 
   private final VideoRepository videoRepository;
   private final VideoListingCache listingCache;
+  private final ApplicationEventPublisher eventPublisher;
 
   @Transactional
   public void applyProcessed(VideoProcessedEvent event) {
@@ -44,12 +47,33 @@ public class VideoStatusUpdateService {
               video.markAsFailed(describe(event), attemptsOf(event));
               videoRepository.save(video);
               listingCache.invalidate(video.getUserId());
+              notifyOwner(video, event);
               log.warn(
                   "Video {} falhou: {} [trace={}]",
                   video.getId(),
                   video.getErrorMessage(),
                   event.traceId());
             });
+  }
+
+  /**
+   * PLT-8: publica o aviso como evento de aplicacao. Quem envia o e-mail so roda depois do commit
+   * (FailureNotificationListener), entao uma falha de SMTP nunca desfaz o status FAILED nem faz a
+   * mensagem voltar para a fila. So chega aqui na primeira vez que o video falha: reentregas de um
+   * video ja FAILED sao descartadas em lockPendingVideo, e o usuario nao recebe aviso repetido.
+   */
+  private void notifyOwner(Video video, VideoFailedEvent event) {
+    if (!video.canBeNotified()) {
+      log.info("Video {} falhou sem e-mail do dono; aviso nao enviado", video.getId());
+      return;
+    }
+    eventPublisher.publishEvent(
+        new VideoFailureNotification(
+            video.getId(),
+            video.getOwnerEmail(),
+            video.getOriginalFilename(),
+            video.getErrorMessage(),
+            event.traceId()));
   }
 
   private Optional<Video> lockPendingVideo(UUID videoId, String eventType) {

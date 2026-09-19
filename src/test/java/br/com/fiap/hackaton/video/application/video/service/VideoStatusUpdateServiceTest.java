@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import br.com.fiap.hackaton.video.application.video.dto.VideoFailedEvent;
+import br.com.fiap.hackaton.video.application.video.dto.VideoFailureNotification;
 import br.com.fiap.hackaton.video.application.video.dto.VideoProcessedEvent;
 import br.com.fiap.hackaton.video.application.video.gateway.VideoListingCache;
 import br.com.fiap.hackaton.video.domain.video.entity.Video;
@@ -20,8 +21,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class VideoStatusUpdateServiceTest {
@@ -31,16 +34,18 @@ class VideoStatusUpdateServiceTest {
 
   @Mock private VideoRepository videoRepository;
   @Mock private VideoListingCache listingCache;
+  @Mock private ApplicationEventPublisher eventPublisher;
 
   private VideoStatusUpdateService statusUpdateService;
 
   @BeforeEach
   void setUp() {
-    statusUpdateService = new VideoStatusUpdateService(videoRepository, listingCache);
+    statusUpdateService =
+        new VideoStatusUpdateService(videoRepository, listingCache, eventPublisher);
   }
 
   private Video queuedVideo() {
-    Video video = new Video(USER_ID, "aula.mp4");
+    Video video = new Video(USER_ID, "aula.mp4", "dono@fiapx.com.br");
     video.markAsQueued();
     return video;
   }
@@ -203,5 +208,51 @@ class VideoStatusUpdateServiceTest {
 
     verify(videoRepository).findByIdForUpdate(video.getId());
     verify(videoRepository, never()).findById(any());
+  }
+
+  @Test
+  @DisplayName("PLT-8: falha publica o aviso para o dono com motivo e trace")
+  void falhaPublicaAvisoParaODono() {
+    Video video = queuedVideo();
+    repositoryLocks(video);
+
+    statusUpdateService.applyFailed(failedEvent(video));
+
+    ArgumentCaptor<VideoFailureNotification> aviso =
+        ArgumentCaptor.forClass(VideoFailureNotification.class);
+    verify(eventPublisher).publishEvent(aviso.capture());
+    assertThat(aviso.getValue().videoId()).isEqualTo(video.getId());
+    assertThat(aviso.getValue().ownerEmail()).isEqualTo("dono@fiapx.com.br");
+    assertThat(aviso.getValue().originalFilename()).isEqualTo("aula.mp4");
+    assertThat(aviso.getValue().reason()).isEqualTo("[FFMPEG_ERROR] exit code 1");
+    assertThat(aviso.getValue().traceId()).isEqualTo(TRACE_ID);
+  }
+
+  @Test
+  @DisplayName("PLT-8: video sem e-mail do dono falha sem aviso")
+  void falhaSemEmailNaoAvisa() {
+    Video video = new Video(USER_ID, "aula.mp4");
+    video.markAsQueued();
+    repositoryLocks(video);
+
+    statusUpdateService.applyFailed(failedEvent(video));
+
+    assertThat(video.getStatus()).isEqualTo(VideoStatus.FAILED);
+    verify(eventPublisher, never()).publishEvent(any());
+  }
+
+  @Test
+  @DisplayName("PLT-8: sucesso e reentrega de falha nao geram aviso")
+  void sucessoEReentregaNaoAvisam() {
+    Video concluido = queuedVideo();
+    repositoryLocks(concluido);
+    statusUpdateService.applyProcessed(processedEvent(concluido));
+
+    Video jaFalhou = queuedVideo();
+    jaFalhou.markAsFailed("ja falhou", 3);
+    repositoryLocks(jaFalhou);
+    statusUpdateService.applyFailed(failedEvent(jaFalhou));
+
+    verify(eventPublisher, never()).publishEvent(any());
   }
 }

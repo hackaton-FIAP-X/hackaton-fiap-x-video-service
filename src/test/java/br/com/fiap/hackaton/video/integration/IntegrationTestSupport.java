@@ -32,7 +32,13 @@ public abstract class IntegrationTestSupport {
           .withUserName("fiapx")
           .withPassword("fiapx12345");
 
+  /** PLT-8: SMTP de verdade; a API HTTP (8025) permite conferir o e-mail recebido. */
+  protected static final GenericContainer<?> MAILHOG =
+      new GenericContainer<>(DockerImageName.parse("mailhog/mailhog:v1.0.1"))
+          .withExposedPorts(1025, 8025);
+
   static {
+    MAILHOG.start();
     POSTGRES.start();
     RABBITMQ.start();
     REDIS.start();
@@ -60,5 +66,12 @@ public abstract class IntegrationTestSupport {
     registry.add("storage.secret-key", MINIO::getPassword);
     registry.add("storage.bucket", () -> BUCKET);
     registry.add("storage.region", () -> "us-east-1");
+    registry.add("spring.mail.host", MAILHOG::getHost);
+    registry.add("spring.mail.port", () -> MAILHOG.getMappedPort(1025));
+  }
+
+  /** URL da API do Mailhog para consultar as mensagens recebidas. */
+  protected static String mailhogApi(String path) {
+    return "http://%s:%d%s".formatted(MAILHOG.getHost(), MAILHOG.getMappedPort(8025), path);
   }
 }
