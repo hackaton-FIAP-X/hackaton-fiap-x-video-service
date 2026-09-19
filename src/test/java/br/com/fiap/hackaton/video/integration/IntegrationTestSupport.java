@@ -25,7 +25,10 @@ public abstract class IntegrationTestSupport {
       new GenericContainer<>(DockerImageName.parse("redis:7-alpine")).withExposedPorts(6379);
 
   private static final MinIOContainer MINIO =
-      new MinIOContainer(DockerImageName.parse("minio/minio:RELEASE.2024-09-13T20-26-02Z"))
+      // O MinIO deixou de publicar no Docker Hub; mesma tag no quay.io
+      new MinIOContainer(
+              DockerImageName.parse("quay.io/minio/minio:RELEASE.2024-09-13T20-26-02Z")
+                  .asCompatibleSubstituteFor("minio/minio"))
           .withUserName("fiapx")
           .withPassword("fiapx12345");
 
