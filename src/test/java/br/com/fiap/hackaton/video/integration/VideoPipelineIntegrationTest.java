@@ -220,6 +220,41 @@ class VideoPipelineIntegrationTest extends IntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("PLT-8: video.failed envia e-mail ao dono com o nome do arquivo e o motivo")
+  void failedDeveAvisarODonoPorEmail() throws Exception {
+    UUID videoId = upload(ALICE, "ferias.mp4");
+    awaitStatus(videoId, VideoStatus.QUEUED);
+
+    publishToExchange(
+        "video.failed",
+        new VideoFailedEvent(
+            videoId, ALICE, "INVALID_VIDEO", "moov atom not found", 1, "trace-mail"));
+    awaitStatus(videoId, VideoStatus.FAILED);
+
+    // o e-mail sai depois do commit: espera ele chegar no Mailhog
+    HttpClient http = HttpClient.newHttpClient();
+    String body = "";
+    for (int i = 0; i < 40 && !body.contains(videoId.toString()); i++) {
+      body =
+          http.send(
+                  HttpRequest.newBuilder(
+                          URI.create(mailhogApi("/api/v2/search?kind=containing&query=" + videoId)))
+                      .build(),
+                  HttpResponse.BodyHandlers.ofString())
+              .body();
+      if (!body.contains(videoId.toString())) {
+        Thread.sleep(250);
+      }
+    }
+    assertThat(body)
+        .as("e-mail de falha no Mailhog")
+        .contains(videoId.toString())
+        .contains("dev@fiapx.com.br")
+        .contains("ferias.mp4")
+        .contains("moov atom not found");
+  }
+
+  @Test
   @DisplayName("Reentrega do mesmo video.processed nao pode alterar a linha")
   void reentregaDeveSerIdempotente() throws Exception {
     UUID videoId = upload(ALICE, "aula-03.mp4");

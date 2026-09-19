@@ -247,4 +247,38 @@ class VideoTest {
       assertThat(video.isDownloadable()).isFalse();
     }
   }
+
+  @Nested
+  @DisplayName("E-mail do dono (PLT-8)")
+  class EmailDoDono {
+
+    @Test
+    @DisplayName("Guarda o e-mail do token sem espacos nas pontas")
+    void guardaEmail() {
+      Video video = new Video(USER_ID, FILENAME, "  dono@fiapx.com.br ");
+
+      assertThat(video.getOwnerEmail()).isEqualTo("dono@fiapx.com.br");
+      assertThat(video.canBeNotified()).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   ", "sem-arroba"})
+    @DisplayName("E-mail vazio ou fora do formato so perde o aviso, nao o upload")
+    void emailInvalidoViraNulo(String email) {
+      Video video = new Video(USER_ID, FILENAME, email);
+
+      assertThat(video.getOwnerEmail()).isNull();
+      assertThat(video.canBeNotified()).isFalse();
+    }
+
+    @Test
+    @DisplayName("E-mail acima de 255 caracteres e descartado")
+    void emailLongoDemais() {
+      String longo = "a".repeat(250) + "@fiapx.com.br";
+
+      assertThat(new Video(USER_ID, FILENAME, longo).canBeNotified()).isFalse();
+      assertThat(new Video(USER_ID, FILENAME, null).canBeNotified()).isFalse();
+      assertThat(novoVideo().canBeNotified()).isFalse();
+    }
+  }
 }

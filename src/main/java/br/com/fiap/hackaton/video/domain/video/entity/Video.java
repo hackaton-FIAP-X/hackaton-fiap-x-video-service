@@ -21,6 +21,7 @@ import lombok.NoArgsConstructor;
 public class Video {
 
   private static final int MAX_FILENAME_LENGTH = 255;
+  private static final int MAX_EMAIL_LENGTH = 255;
 
   @Id private UUID id;
 
@@ -54,6 +55,15 @@ public class Video {
 
   @Column(name = "updated_at")
   private LocalDateTime updatedAt;
+
+  /** Destino do aviso de falha (PLT-8). Opcional: token sem claim email nao recebe aviso. */
+  @Column(name = "owner_email", length = MAX_EMAIL_LENGTH)
+  private String ownerEmail;
+
+  public Video(UUID userId, String originalFilename, String ownerEmail) {
+    this(userId, originalFilename);
+    this.ownerEmail = normalizeEmail(ownerEmail);
+  }
 
   public Video(UUID userId, String originalFilename) {
     validateUserId(userId);
@@ -104,6 +114,10 @@ public class Video {
     return status.isFinal();
   }
 
+  public boolean canBeNotified() {
+    return ownerEmail != null;
+  }
+
   private void transitionTo(VideoStatus target) {
     if (!status.allowsTransitionTo(target)) {
       throw new DomainException(
@@ -145,6 +159,15 @@ public class Video {
     if (frameCount == null || frameCount < 0) {
       throw new DomainException("Quantidade de frames nao pode ser nula nem negativa");
     }
+  }
+
+  private String normalizeEmail(String email) {
+    if (email == null || email.isBlank()) {
+      return null;
+    }
+    String trimmed = email.trim();
+    // o e-mail vem de um token assinado; um valor fora do formato so perde o aviso
+    return trimmed.length() <= MAX_EMAIL_LENGTH && trimmed.contains("@") ? trimmed : null;
   }
 
   private String truncateErrorMessage(String errorMessage) {

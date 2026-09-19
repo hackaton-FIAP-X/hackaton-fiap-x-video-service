@@ -35,10 +35,17 @@ public class VideoService {
   }
 
   public UploadVideoResponse upload(UUID userId, VideoUploadCommand command) {
+    return upload(userId, null, command);
+  }
+
+  /**
+   * @param ownerEmail claim email do token; destino do aviso se o processamento falhar (PLT-8)
+   */
+  public UploadVideoResponse upload(UUID userId, String ownerEmail, VideoUploadCommand command) {
     VideoFormat format = VideoFormat.fromFilename(command.originalFilename());
     validateSize(command.sizeInBytes());
 
-    Video video = new Video(userId, command.originalFilename());
+    Video video = new Video(userId, command.originalFilename(), ownerEmail);
     storageGateway.store(
         new StorageKey(video.getStorageKey()),
         command.content(),

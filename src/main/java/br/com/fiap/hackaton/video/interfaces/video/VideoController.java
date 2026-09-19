@@ -11,6 +11,7 @@ import br.com.fiap.hackaton.video.application.video.service.VideoQueryService;
 import br.com.fiap.hackaton.video.application.video.service.VideoService;
 import br.com.fiap.hackaton.video.domain.video.valueobject.VideoStatus;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,9 +57,13 @@ public class VideoController {
     @ApiResponse(responseCode = "413", description = "Arquivo acima do tamanho maximo")
   })
   public ResponseEntity<UploadVideoResponse> upload(
-      @CurrentUserId UUID userId, @RequestParam("file") MultipartFile file) {
+      @CurrentUserId UUID userId,
+      @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
+      @RequestParam("file") MultipartFile file) {
 
-    UploadVideoResponse response = videoService.upload(userId, toCommand(file));
+    // PLT-8: o e-mail do token vai junto com o video para o aviso de falha
+    String ownerEmail = jwt == null ? null : jwt.getClaimAsString("email");
+    UploadVideoResponse response = videoService.upload(userId, ownerEmail, toCommand(file));
     return ResponseEntity.accepted().body(response);
   }
 

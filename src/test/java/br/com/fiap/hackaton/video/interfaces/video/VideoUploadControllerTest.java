@@ -94,6 +94,8 @@ class VideoUploadControllerTest {
     assertThat(persistidos.getFirst().getStorageKey())
         .startsWith("fiapx/inputs/%s/".formatted(USER_ID))
         .endsWith("/aula-01.mp4");
+    // PLT-8: o claim email do token fica no video, para o aviso de falha
+    assertThat(persistidos.getFirst().getOwnerEmail()).isEqualTo("dev@fiapx.com.br");
   }
 
   @Test
