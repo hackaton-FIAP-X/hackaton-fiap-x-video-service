@@ -1,0 +1,88 @@
+name: CI
+
+# PLT-5 — verificacao continua: build, testes (incluindo Testcontainers) e gate
+# de cobertura de 80% a cada PR e a cada push na main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build & test (video-service)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout do auth-service (security-commons)
+        uses: actions/checkout@v4
+        with:
+          repository: hackaton-FIAP-X/hackaton-fiap-x-auth-service
+          path: auth-service
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Instala o security-commons no repositorio local
+        # mesmo caminho do `make security-commons`: compilamos do repo irmao em
+        # vez de baixar do GitHub Packages, que exige token ate para leitura
+        run: ./mvnw -B --no-transfer-progress -f auth-service/security-commons/pom.xml install -DskipTests
+
+      - name: Build, testes e gate de cobertura
+        # mvn verify roda: compile -> test -> jacoco:report -> jacoco:check.
+        # Os testes de integracao usam Testcontainers (Postgres, RabbitMQ,
+        # MinIO, Mailhog) — o runner do GitHub ja tem Docker.
+        run: ./mvnw -B --no-transfer-progress verify
+
+      - name: Resumo da cobertura
+        if: always()
+        run: |
+          CSV=target/site/jacoco/jacoco.csv
+          if [ ! -s "$CSV" ]; then
+            echo "Relatorio JaCoCo nao gerado." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          awk -F, 'NR>1 {miss+=$8; cov+=$9}
+            END {
+              total = miss + cov
+              if (total == 0) {
+                print "Nenhuma classe instrumentada."
+              } else {
+                printf "Cobertura de linhas: **%.1f%%** (%d/%d)\n", 100*cov/total, cov, total
+              }
+            }' "$CSV" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Gate de 80% no \`pom.xml\` (jacoco-maven-plugin, regra BUNDLE/LINE)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publica relatorio JaCoCo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-video-service
+          path: target/site/jacoco/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Publica resultados de teste
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-video-service
+          path: target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7
