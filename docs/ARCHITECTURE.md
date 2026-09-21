@@ -116,23 +116,43 @@ resto do código livre para tratar o `userId` como um UUID confiável, sem `try/
 
 A autenticação inteira vem do módulo **`security-commons`** que a Trilha A entregou no AUTH-5.
 Este serviço não tem nenhuma classe de segurança própria: o `SecurityFilterChain`, o `JwtDecoder`,
-a validação do `sub`, a anotação `@CurrentUserId` e a resposta `problem+json` de `401`/`403` são
-todos autoconfigurados pelo módulo. O que o serviço faz é declarar a dependência e duas
-propriedades:
+o validador de token (emissor, expiração e `sub` como UUID), a anotação `@CurrentUserId` e a
+resposta `problem+json` de `401`/`403` são todos autoconfigurados pelo módulo.
+
+Os testes trocam apenas a **fonte da chave** — uma chave pública de fixture no lugar da URL do
+JWKS — e injetam o `OAuth2TokenValidator<Jwt>` que o módulo expõe como bean. Assim os testes de
+token expirado, emissor errado e `sub` inválido exercitam as regras reais do módulo, e não uma
+cópia delas que poderia divergir sem ninguém perceber.
+
+O que o serviço declara é a dependência e duas propriedades:
 
 ```yaml
 security:
   jwt:
-    jwks-uri: http://auth-service:8081/.well-known/jwks.json
+    jwks-uri: http://auth-service:8080/.well-known/jwks.json
     issuer: fiapx-auth
+```
+
+**Porta do JWKS.** O `auth-service` escuta em `8080` dentro do container; o `8081` do diagrama é só
+a porta publicada no host pelo perfil `prod` do compose dele. Por isso há dois defaults:
+`docker-compose.yml` usa `http://auth-service:8080/...`, que resolve dentro da rede Docker, e o
+`application.yml` usa `http://localhost:8081/...`, para quem roda o serviço fora do Docker. Apontar
+para `auth-service:8081` dentro da rede faz o JWKS não responder e **toda** chamada autenticada
+cair em `401`, sem erro nenhum no boot — o decoder só busca a chave no primeiro token.
+
+Para testar contra o `auth-service` real, suba-o pelo compose do repositório dele
+(`docker compose --profile prod up -d postgres auth-service-prod`) e ligue-o à rede deste serviço:
+
+```bash
+docker network connect --alias auth-service hackaton-fiap-x-video-service_default FIAP-auth-service-prod
 ```
 
 A lista de rotas públicas do módulo já é exatamente a que este serviço precisa (health, info,
 prometheus e a documentação OpenAPI); se um dia divergir, basta `security.jwt.public-endpoints`.
 
 **Cuidado que o README do módulo destaca:** a autoconfiguração só ativa com `security.jwt.jwks-uri`
-preenchido. Sem essa propriedade, o `spring-boot-starter-security` que chega transitivamente faz o
-Spring Boot proteger tudo com HTTP Basic e uma senha aleatória no log. O teste de integração cobre
+preenchido. Sem essa propriedade, o Spring Security que o módulo traz transitivamente faz o Spring
+Boot proteger tudo com HTTP Basic e uma senha aleatória no log. O teste de integração cobre
 esse caso indiretamente, porque um `401` com HTTP Basic não traria o corpo `problem+json`.
 
 ### 3.3 Eventos — exchange `fiapx.video` (topic)
